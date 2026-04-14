@@ -1,0 +1,165 @@
+﻿@model WeblogApplication.Models.AdminDashboardViewModel
+@{
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+var UserRole = Context.Session.GetString("UserRole");
+}
+<script>
+    if("@UserRole" != "Admin")
+    window.location = "/user/login"
+</script>
+@if(TempData["AdminCreated"] != null)
+{
+    <div class="bg-success" style="padding: 20px">@TempData["AdminCreated"]</div>
+}
+
+@if (TempData["AdminLoginMessage"] != null)
+{
+    <div class="bg-success" style="padding: 20px">@TempData["AdminLoginMessage"]</div>
+}
+<div class="container">
+    <h3>Admin Dashboard</h3>
+    <hr>
+
+    <!-- Filter form -->
+    
+
+    <!-- Display total blogs, Likes, downvotes, and comments -->
+    <div class="row">
+        <div class="col-md-3 my-4">
+            <div class="card text-white" style="background-color: green">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Total Blogs</h4>
+                    <h1 class="card-text "style="width:50px;margin:0 auto;">@Model.TotalBlogs</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 my-4">
+            <div class="card text-white" style="background-color: blue;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Total Upvotes</h4>
+                    <h1 class="card-text " style="width:50px;margin:0 auto;">@Model.TotalLikes</h1>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 my-4">
+            <div class="card text-white" style="background-color: orange">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Total Downvotes</h4>
+                    <h1 class="card-text " style="width:50px;margin:0 auto;">@Model.TotalDislikes</h1>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 my-4">
+            <div class="card text-white" style="background-color: red">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Total Comments</h4>
+                    <h1 class="card-text e" style="width:50px;margin:0 auto;">@Model.TotalComments</h1>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display total comments -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="get" action="@Url.Action("Index", "Admin")">
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="filterType">Filters:</label>
+                        <select id="filterType" name="filterType" class="form-control bg-dark text-white">
+                            <option value="all" @(Context.Request.Query["filterType"] == "all" ? "selected" : "")>All Time</option>
+                            <option value="january" @(Context.Request.Query["filterType"] == "january" ? "selected" : "")>January</option>
+                            <option value="february" @(Context.Request.Query["filterType"] == "february" ? "selected" : "")>February</option>
+                            <option value="march" @(Context.Request.Query["filterType"] == "march" ? "selected" : "")>March</option>
+                            <option value="april" @(Context.Request.Query["filterType"] == "april" ? "selected" : "")>April</option>
+                            <option value="may" @(Context.Request.Query["filterType"] == "may" ? "selected" : "")>May</option>
+                            <option value="june" @(Context.Request.Query["filterType"] == "june" ? "selected" : "")>June</option>
+                            <option value="july" @(Context.Request.Query["filterType"] == "july" ? "selected" : "")>July</option>
+                            <option value="august" @(Context.Request.Query["filterType"] == "august" ? "selected" : "")>August</option>
+                            <option value="september" @(Context.Request.Query["filterType"] == "september" ? "selected" : "")>September</option>
+                            <option value="october" @(Context.Request.Query["filterType"] == "october" ? "selected" : "")>October</option>
+                            <option value="november" @(Context.Request.Query["filterType"] == "november" ? "selected" : "")>November</option>
+                            <option value="december" @(Context.Request.Query["filterType"] == "december" ? "selected" : "")>December</option>
+                        </select>
+
+                    </div>
+                    <div class="form-group col-md-6 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Display top 10 bloggers -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card text-white" style="background-color: dimgrey; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5); border-radius: 1%; border: 2px solid black">
+                <div class="card-body">
+                    <h5 class="card-title">Top 10 Bloggers</h5>
+                    <table class="table text-white">
+                        <!-- Table header -->
+                        <thead>
+                            <tr>
+                                <th>Position</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                            </tr>
+                        </thead>
+                        <!-- Table body -->
+                        <tbody>
+                            @foreach (var (index, blogger) in Model.TopBloggers.Select((item, index) => (index, item)))
+                            {
+                                <tr>
+                                    <td>@(index + 1)</td>
+                                    <td>@blogger.Username</td>
+                                    <td>@blogger.Email</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display top 10 blogs -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card " style="background-color: dimgrey; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5); border-radius: 1%; border: 2px solid black" ">
+                <div class="card-body ">
+                    <h5 class="card-title text-white">Top 10 Blogs</h5>
+                    <table class="table text-white">
+                        <!-- Table header -->
+                        <thead>
+                            <tr>
+                                <th>SN</th>
+                                <th>Title</th>
+                                <th>Image</th>
+                                <th>Total Comments</th>
+                                <th>Total Upvotes</th>
+                                <th>Total Downvotes</th>
+                            </tr>
+                        </thead>
+                        <!-- Table body -->
+                        <tbody>
+                            @foreach (var (index, post) in Model.PostDetails.Select((item, index) => (index, item)))
+                            {
+                                <tr>
+                                    <td>@(index + 1)</td>
+                                    <td>@post.BlogTitle</td>
+                                    <td><img src="@post.ImagePath" alt="Post Image" style="max-width: 100px; height: 100px; object-fit: cover;" /></td>
+                                    <td>@post.TotalComments</td>
+                                    <td>@post.TotalLikes</td>
+                                    <td>@post.TotalDislikes</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

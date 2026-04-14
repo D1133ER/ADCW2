@@ -1,0 +1,54 @@
+﻿@if (TempData["SignUpSuccessMessage"] != null)
+{
+    <div class="alert alert-success" role="alert">
+        @TempData["SignUpSuccessMessage"]
+    </div>
+   
+}
+
+@if (TempData["myresetSuccess"] != null)
+{
+    <div class="alert alert-success" role="alert">
+        @TempData["myresetSuccess"]
+    </div>
+
+}
+
+@if (Context.Session.GetString("UserId") != null)
+{
+    <script>
+        window.location.href = '@Url.Action("Index", "Blog")';
+    </script>
+}
+
+@if (TempData["LoginFailureMessage"] != null)
+{
+    <div class="alert alert-danger" role="alert">
+        @TempData["LoginFailureMessage"]
+    </div>
+}
+<div class="container mt-5 border border-light rounded col-md-8 p-4" style="display: flex">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <form method="post" action="/User/Login">
+                <div class="form-group">
+                    <label for="Username" class="">Username</label>
+                    <input type="text" class="form-control bg-light border-dark" id="Username" name="Username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="">Password</label>
+                    <input type="password" class="form-control bg-light border-dark" id="Password" name="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block mt-4">Login</button>
+                <a href="/user/forgotpassword" class="btn btn-danger btn-block mt-3">Forgot Password?</a>
+            </form>
+        </div>
+        <div class="col-md-6">
+            <img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Logo" style="width:90%">
+        </div>
+    </div>
+   
+</div>
+
+
+

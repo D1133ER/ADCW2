@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 33% 98%;
+    --foreground: 210 50% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 50% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 50% 10%;
+
+    --primary: 195 55% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 60% 95%;
+    --secondary-foreground: 210 50% 10%;
+
+    --muted: 210 30% 94%;
+    --muted-foreground: 210 15% 46%;
+
+    --accent: 170 45% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 25% 88%;
+    --input: 210 25% 88%;
+    --ring: 195 55% 40%;
+
+    --radius: 0.75rem;
+
+    --navy: 210 70% 14%;
+    --navy-foreground: 0 0% 100%;
+    --teal: 195 55% 40%;
+    --teal-light: 170 45% 55%;
+
+    --sidebar-background: 210 70% 14%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 195 55% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 50% 20%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 210 40% 22%;
+    --sidebar-ring: 195 55% 40%;
+  }
+
+  .dark {
+    --background: 210 70% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 210 60% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 210 60% 10%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 195 55% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 16%;
+    --secondary-foreground: 210 20% 92%;
+
+    --muted: 210 40% 16%;
+    --muted-foreground: 210 15% 60%;
+
+    --accent: 170 45% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 40% 18%;
+    --input: 210 40% 18%;
+    --ring: 195 55% 40%;
+
+    --navy: 210 70% 14%;
+    --navy-foreground: 0 0% 100%;
+
+    --sidebar-background: 210 70% 7%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 195 55% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 50% 14%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 210 40% 14%;
+    --sidebar-ring: 195 55% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+}
+
+@layer utilities {
+  /* Stagger animation delays */
+  .delay-75  { animation-delay: 75ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-600 { animation-delay: 600ms; }
+  .delay-700 { animation-delay: 700ms; }
+
+  /* Pre-animate state — keep invisible until animation plays */
+  .animate-slide-up,
+  .animate-fade-scale,
+  .animate-fade-in {
+    opacity: 0;
+  }
+
+  /* Reading progress bar */
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: hsl(var(--primary));
+    z-index: 100;
+    transform-origin: left;
+    transition: width 0.1s linear;
+    pointer-events: none;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Smooth card lift */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  .card-hover:hover {
+    @apply -translate-y-1 shadow-lg shadow-foreground/5;
+  }
+
+  /* Glass morphism */
+  .glass {
+    @apply bg-card/80 backdrop-blur-md border border-border/60;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+}
