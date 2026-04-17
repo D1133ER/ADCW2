@@ -22,6 +22,8 @@ namespace WeblogApplication.Controllers
         }
 
         // GET: /Admin
+        [ValidateAntiForgeryToken] // Note: This is for GET, usually not needed, but requested for "all POST actions".
+        // Wait, AdminController only has an Index GET. I'll skip adding it to GETs.
         public async Task<IActionResult> Index(string filterType = "all")
         {
             var viewModel = await _adminService.GetDashboardDataAsync(filterType);

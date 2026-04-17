@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 
 namespace WeblogApplication.Models
@@ -20,6 +20,8 @@ namespace WeblogApplication.Models
         public string? Bio { get; set; }
         public ICollection<CommentModel> Comments { get; set; }
         public string? passwordResetToken { get; set; }
+        public DateTime? PasswordResetExpiry { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         [Required(ErrorMessage = "Role is required")]
         public UserRole Role { get; set;}

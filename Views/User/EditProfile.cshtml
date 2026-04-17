@@ -18,6 +18,7 @@
 <div class="container mt-5 col-md-12" style="border: 2px solid #ced4da; border-radius: 10px; padding: 20px;">
     <h2 style="text-align: center; color: #ced4da;">Edit Profile</h2>
     <form method="post" action="/user/editprofile" onsubmit="return validatePasswords()">
+        @Html.AntiForgeryToken()
         <div class="form-group">
             <label for="Username" style="color: #ced4da;">Username:</label>
             <input type="text" class="form-control" id="Username" name="Username" value="@Model.Username" required />

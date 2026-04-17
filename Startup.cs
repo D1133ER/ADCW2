@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using WeblogApplication.Data;
 using WeblogApplication.Interfaces;
 using WeblogApplication.Implementation;
+using WeblogApplication.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WeblogApplication
 {
@@ -90,11 +92,21 @@ namespace WeblogApplication
             services.AddScoped<IRankingService, RankingService>();
             services.AddScoped<ICommentService, CommentService>();
             services.AddScoped<IAdminService, AdminService>();
-            services.AddHttpContextAccessor();
+            services.AddScoped<IImageService, ImageService>();
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IAuthorizationHandler, ResourceOwnerHandler>();
 
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("ResourceOwner", policy =>
+                    policy.Requirements.Add(new ResourceOwnerRequirement()));
+            });
+
+            services.AddHttpContextAccessor();
             services.Configure<SmtpOptions>(Configuration.GetSection("SmtpOptions"));
-        
-    }
+        }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {

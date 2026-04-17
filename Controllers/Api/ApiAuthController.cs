@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using WeblogApplication.Data;
+using WeblogApplication.Interfaces;
 using WeblogApplication.Models;
 
 namespace WeblogApplication.Controllers.Api
@@ -14,32 +13,26 @@ namespace WeblogApplication.Controllers.Api
     [Route("api/auth")]
     public class ApiAuthController : ControllerBase
     {
-        private readonly WeblogApplicationDbContext _context;
+        private readonly IUserService _userService;
         private readonly IConfiguration _config;
+        private readonly IEmailService _emailService;
 
-        public ApiAuthController(WeblogApplicationDbContext context, IConfiguration config)
+        public ApiAuthController(IUserService userService, IConfiguration config, IEmailService emailService)
         {
-            _context = context;
+            _userService = userService;
             _config = config;
+            _emailService = emailService;
         }
 
         // POST /api/auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+            var existingUser = await _userService.GetUserByEmailAsync(dto.Email);
+            if (existingUser != null)
                 return Conflict(new { message = "Email already in use." });
 
-            var user = new UserModel
-            {
-                Email = dto.Email,
-                Username = dto.DisplayName,
-                Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Role = UserRole.Blogger,
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
+            var user = await _userService.RegisterAsync(dto.Email, dto.DisplayName, dto.Password);
             return Ok(BuildAuthResponse(user));
         }
 
@@ -47,8 +40,8 @@ namespace WeblogApplication.Controllers.Api
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
+            var user = await _userService.AuthenticateAsync(dto.Email, dto.Password);
+            if (user == null)
                 return Unauthorized(new { message = "Invalid credentials." });
 
             return Ok(BuildAuthResponse(user));
@@ -60,7 +53,7 @@ namespace WeblogApplication.Controllers.Api
         public async Task<IActionResult> Me()
         {
             var userId = GetUserId();
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _userService.GetUserByIdAsync(userId);
             if (user == null) return NotFound();
             return Ok(BuildMeResponse(user));
         }
@@ -71,31 +64,34 @@ namespace WeblogApplication.Controllers.Api
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
         {
             var userId = GetUserId();
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
+            var success = await _userService.UpdateProfileAsync(userId, dto.DisplayName, dto.Bio);
+            if (!success) return NotFound();
 
-            user.Username = dto.DisplayName;
-            user.Bio = string.IsNullOrWhiteSpace(dto.Bio) ? null : dto.Bio.Trim();
-            await _context.SaveChangesAsync();
-
+            var user = await _userService.GetUserByIdAsync(userId);
             return Ok(new UserProfileDto
             {
-                Id = user.Id.ToString(),
+                Id = user!.Id.ToString(),
                 UserId = user.Id.ToString(),
                 DisplayName = user.Username,
                 Bio = user.Bio,
                 AvatarUrl = null,
-                CreatedAt = DateTime.UtcNow.ToString("o"),
+                CreatedAt = user.CreatedAt.ToString("o"),
                 UpdatedAt = DateTime.UtcNow.ToString("o"),
             });
         }
 
         // POST /api/auth/forgot-password
         [HttpPost("forgot-password")]
-        public IActionResult ForgotPassword([FromBody] ForgotPasswordDto dto)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
         {
-            // Password reset email sending is handled by the existing UserController/SMTP flow.
-            // Return 204 to satisfy the frontend contract.
+            var success = await _userService.RequestPasswordResetAsync(dto.Email);
+            if (success)
+            {
+                var user = await _userService.GetUserByEmailAsync(dto.Email);
+                var resetUrl = Url.Action("ResetPassword", "User", new { email = user!.Email, token = user.passwordResetToken }, Request.Scheme);
+                await _emailService.SendEmailAsync(user.Email, "Password Reset", $"Reset link: {resetUrl}");
+            }
+            // Always return 204 to prevent enumeration
             return NoContent();
         }
 
@@ -103,12 +99,8 @@ namespace WeblogApplication.Controllers.Api
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.passwordResetToken == dto.Token);
-            if (user == null) return BadRequest(new { message = "Invalid or expired token." });
-
-            user.Password = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-            user.passwordResetToken = null;
-            await _context.SaveChangesAsync();
+            var success = await _userService.ResetPasswordAsync(dto.Token, dto.NewPassword);
+            if (!success) return BadRequest(new { message = "Invalid or expired token." });
 
             return NoContent();
         }
@@ -124,7 +116,10 @@ namespace WeblogApplication.Controllers.Api
 
         private string GenerateToken(UserModel user)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+            var keyStr = _config["Jwt:Key"];
+            if (string.IsNullOrEmpty(keyStr)) throw new InvalidOperationException("JWT Key not configured.");
+            
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyStr));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var claims = new[]
             {
@@ -153,7 +148,7 @@ namespace WeblogApplication.Controllers.Api
                 DisplayName = user.Username,
                 Bio = user.Bio,
                 AvatarUrl = (string?)null,
-                CreatedAt = DateTime.UtcNow.ToString("o"),
+                CreatedAt = user.CreatedAt.ToString("o"),
                 UpdatedAt = DateTime.UtcNow.ToString("o"),
             },
             isAdmin = user.Role == UserRole.Admin,
@@ -169,7 +164,7 @@ namespace WeblogApplication.Controllers.Api
                 DisplayName = user.Username,
                 Bio = user.Bio,
                 AvatarUrl = (string?)null,
-                CreatedAt = DateTime.UtcNow.ToString("o"),
+                CreatedAt = user.CreatedAt.ToString("o"),
                 UpdatedAt = DateTime.UtcNow.ToString("o"),
             },
             isAdmin = user.Role == UserRole.Admin,

@@ -2,6 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using WeblogApplication.Data;
 using WeblogApplication.Interfaces;
 using WeblogApplication.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace WeblogApplication.Implementation
 {
@@ -31,7 +35,6 @@ namespace WeblogApplication.Implementation
                     break;
             }
 
-            // Single query with aggregation via a left join — avoids N+1
             var result = await blogsQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -51,6 +54,23 @@ namespace WeblogApplication.Implementation
             return result;
         }
 
+        public async Task<IEnumerable<BlogModel>> GetBlogsAsync(bool? published = true, int? userId = null)
+        {
+            var query = _context.Blogs.Include(b => b.User).AsQueryable();
+
+            if (published.HasValue)
+            {
+                query = query.Where(b => b.Published == published.Value);
+            }
+
+            if (userId.HasValue)
+            {
+                query = query.Where(b => b.UserId == userId.Value);
+            }
+
+            return await query.OrderByDescending(b => b.CreatedAt).ToListAsync();
+        }
+
         public async Task<int> GetTotalBlogCountAsync()
         {
             return await _context.Blogs.CountAsync(b => b.Published);
@@ -58,7 +78,16 @@ namespace WeblogApplication.Implementation
 
         public async Task<BlogModel?> GetBlogByIdAsync(int id)
         {
-            return await _context.Blogs.FirstOrDefaultAsync(b => b.Id == id);
+            return await _context.Blogs.FindAsync(id);
+        }
+
+        public async Task<BlogModel?> GetBlogDetailAsync(int id)
+        {
+            return await _context.Blogs
+                .Include(b => b.User)
+                .Include(b => b.Comments)
+                    .ThenInclude(c => c.User)
+                .FirstOrDefaultAsync(b => b.Id == id);
         }
 
         public async Task<List<BlogModel>> GetBlogsByUserIdAsync(int userId)
@@ -78,9 +107,30 @@ namespace WeblogApplication.Implementation
             await _context.SaveChangesAsync();
         }
 
-        public async Task DeleteBlogAsync(BlogModel blog)
+        public async Task DeleteBlogAsync(int id)
         {
-            _context.Blogs.Remove(blog);
+            var blogPost = await _context.Blogs.FindAsync(id);
+            if (blogPost == null) return;
+
+            var commentIds = await _context.Comments
+                .Where(c => c.BlogId == id)
+                .Select(c => c.Id)
+                .ToListAsync();
+
+            var relatedRankings = await _context.Ranking
+                .Where(r =>
+                    (r.Type == "blog" && r.TypeId == id) ||
+                    ((r.Type == "comment" || r.Type == "comments") && commentIds.Contains(r.TypeId)))
+                .ToListAsync();
+
+            var relatedAlerts = await _context.Alert
+                .Where(a => a.BlogPostId == id)
+                .ToListAsync();
+
+            _context.Ranking.RemoveRange(relatedRankings);
+            _context.Alert.RemoveRange(relatedAlerts);
+            _context.Blogs.Remove(blogPost);
+            
             await _context.SaveChangesAsync();
         }
     }

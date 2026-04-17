@@ -66,6 +66,7 @@
             </div>
             <div class="modal-body">
                 <form id="blogForm" enctype="multipart/form-data" style="color: black">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" id="blogId"/>
                     <div class="form-group">
                         <label for="title">Title</label>

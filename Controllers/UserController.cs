@@ -31,6 +31,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult SignUp(UserModel model)
     {
         ModelState.Remove("passwordResetToken");
@@ -54,6 +55,7 @@ public class UserController : Controller
 
             // Hash the password before storing
             model.Password = BCrypt.Net.BCrypt.HashPassword(model.Password);
+            model.Role = UserRole.Blogger; // Force role to Blogger for public signup
 
             // Add the user to the database
             _context.Users.Add(model);
@@ -85,6 +87,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginModel model)
     {
         if (ModelState.IsValid)
@@ -164,6 +167,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditProfile(UserModel model)
     {
         // Server-side authentication check
@@ -221,6 +225,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ForgotPassword(string email)
     {
         // Validate email (you may also want to check if the email exists in your database)
@@ -233,14 +238,16 @@ public class UserController : Controller
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         if(user == null)
         {
-            TempData["ErrorResetPassword"] = "Email not registered";
+            // Return success message even if email is not found to prevent enumeration
+            TempData["MailSuccess"] = "If the email is registered, a reset link has been sent successfully";
             return Redirect("/user/forgotpassword");
         }
 
         string resetToken = Guid.NewGuid().ToString();
 
-        // Store the reset token in the database
+        // Store the reset token and expiry in the database
         user.passwordResetToken = resetToken;
+        user.PasswordResetExpiry = DateTime.Now.AddHours(24);
         await _context.SaveChangesAsync();
 
         var resetUrl = Url.Action("ResetPassword", "User", new { email = email, token = resetToken }, Request.Scheme);
@@ -275,6 +282,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(PasswordResetModel model)
     {
         if (!ModelState.IsValid)
@@ -291,8 +299,11 @@ public class UserController : Controller
             return Redirect("/user/login");
         }
 
-        // Validate the password reset token
-        if (string.IsNullOrEmpty(user.passwordResetToken) || user.passwordResetToken != model.token)
+        // Validate the password reset token and expiry
+        if (string.IsNullOrEmpty(user.passwordResetToken) ||
+            user.passwordResetToken != model.token ||
+            user.PasswordResetExpiry == null ||
+            user.PasswordResetExpiry < DateTime.Now)
         {
             TempData["LoginFailureMessage"] = "Invalid or expired password reset link.";
             return Redirect("/user/login");
@@ -342,6 +353,7 @@ public class UserController : Controller
     }
     
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> DeleteProfile()
     {

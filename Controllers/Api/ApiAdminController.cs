@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using WeblogApplication.Data;
+using WeblogApplication.Interfaces;
 using WeblogApplication.Models;
 
 namespace WeblogApplication.Controllers.Api
@@ -11,31 +10,26 @@ namespace WeblogApplication.Controllers.Api
     [Authorize(Roles = "Admin")]
     public class ApiAdminController : ControllerBase
     {
-        private readonly WeblogApplicationDbContext _context;
+        private readonly IAdminService _adminService;
 
-        public ApiAdminController(WeblogApplicationDbContext context)
+        public ApiAdminController(IAdminService adminService)
         {
-            _context = context;
+            _adminService = adminService;
         }
 
         // GET /api/admin/stats
         [HttpGet("stats")]
         public async Task<IActionResult> Stats()
         {
-            var users = await _context.Users.CountAsync();
-            var blogs = await _context.Blogs.CountAsync();
-            var comments = await _context.Comments.CountAsync();
-            return Ok(new { users, blogs, comments });
+            var stats = await _adminService.GetTotalStatsAsync();
+            return Ok(stats);
         }
 
         // GET /api/admin/users?limit=10
         [HttpGet("users")]
         public async Task<IActionResult> Users([FromQuery] int limit = 10)
         {
-            var users = await _context.Users
-                .OrderByDescending(u => u.Id)
-                .Take(limit)
-                .ToListAsync();
+            var users = await _adminService.GetRecentUsersAsync(limit);
 
             return Ok(users.Select(u => new
             {
@@ -44,7 +38,7 @@ namespace WeblogApplication.Controllers.Api
                 displayName = u.Username,
                 bio = u.Bio,
                 avatarUrl = (string?)null,
-                createdAt = DateTime.UtcNow.ToString("o"),
+                createdAt = u.CreatedAt.ToString("o"),
                 updatedAt = DateTime.UtcNow.ToString("o"),
             }));
         }
@@ -53,11 +47,7 @@ namespace WeblogApplication.Controllers.Api
         [HttpGet("blogs")]
         public async Task<IActionResult> Blogs([FromQuery] int limit = 10)
         {
-            var blogs = await _context.Blogs
-                .Include(b => b.User)
-                .OrderByDescending(b => b.CreatedAt)
-                .Take(limit)
-                .ToListAsync();
+            var blogs = await _adminService.GetRecentBlogsAsync(limit);
 
             return Ok(blogs.Select(b => new
             {

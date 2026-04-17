@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using WeblogApplication.Data;
+using WeblogApplication.Interfaces;
 using WeblogApplication.Models;
 
 namespace WeblogApplication.Controllers.Api
@@ -13,52 +12,51 @@ namespace WeblogApplication.Controllers.Api
     [Authorize]
     public class ApiCommentsController : ControllerBase
     {
-        private readonly WeblogApplicationDbContext _context;
+        private readonly ICommentService _commentService;
+        private readonly IRankingService _rankingService;
+        private readonly IAuthorizationService _authorizationService;
 
-        public ApiCommentsController(WeblogApplicationDbContext context)
+        public ApiCommentsController(
+            ICommentService commentService,
+            IRankingService rankingService,
+            IAuthorizationService authorizationService)
         {
-            _context = context;
+            _commentService = commentService;
+            _rankingService = rankingService;
+            _authorizationService = authorizationService;
         }
 
         // POST /api/comments/{id}/vote
         [HttpPost("{id:int}/vote")]
         public async Task<IActionResult> Vote(int id, [FromBody] VoteDto dto)
         {
-            // Vote type tracking uses the RankingModel.
             var userId = GetUserId();
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return Unauthorized();
+            var action = dto.VoteType == 1 ? "like" : "dislike";
+            
+            var (likes, dislikes) = await _rankingService.ModifyRankAsync(id, action, "comment", userId);
+            return Ok(new { likes, dislikes });
+        }
 
-            var existing = await _context.Ranking
-                .FirstOrDefaultAsync(r => r.TypeId == id && r.Type == "comment" && r.UserId == userId);
+        // PUT /api/comments/{id}
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateCommentDto dto)
+        {
+            var userId = GetUserId();
+            var success = await _commentService.EditCommentAsync(id, dto.Content, userId);
+            
+            if (!success) return NotFound();
+            return NoContent();
+        }
 
-            if (existing != null)
-            {
-                // Toggle off if same vote
-                if ((dto.VoteType == 1 && existing.Like == 1) || (dto.VoteType == -1 && existing.Dislike == 1))
-                {
-                    _context.Ranking.Remove(existing);
-                }
-                else
-                {
-                    existing.Like = dto.VoteType == 1 ? 1 : 0;
-                    existing.Dislike = dto.VoteType == -1 ? 1 : 0;
-                }
-            }
-            else
-            {
-                _context.Ranking.Add(new RankingModel
-                {
-                    TypeId = id,
-                    Type = "comment",
-                    UserId = userId,
-                    Like = dto.VoteType == 1 ? 1 : 0,
-                    Dislike = dto.VoteType == -1 ? 1 : 0,
-                });
-            }
-
-            await _context.SaveChangesAsync();
-            return Ok();
+        // DELETE /api/comments/{id}
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var userId = GetUserId();
+            var success = await _commentService.DeleteCommentAsync(id, userId);
+            
+            if (!success) return NotFound();
+            return NoContent();
         }
 
         // ─── Helpers ──────────────────────────────────────────────────────────
@@ -72,4 +70,5 @@ namespace WeblogApplication.Controllers.Api
     }
 
     public record VoteDto(int VoteType);
+    public record UpdateCommentDto(string Content);
 }

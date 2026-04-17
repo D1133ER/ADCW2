@@ -23,19 +23,25 @@ public class BlogController : Controller
     private readonly IBlogService _blogService;
     private readonly IRankingService _rankingService;
     private readonly ICommentService _commentService;
+    private readonly IImageService _imageService;
+    private readonly INotificationService _notificationService;
 
     public BlogController(
         WeblogApplicationDbContext context,
         IWebHostEnvironment hostingEnvironment,
         IBlogService blogService,
         IRankingService rankingService,
-        ICommentService commentService)
+        ICommentService commentService,
+        IImageService imageService,
+        INotificationService notificationService)
     {
         _context = context;
         _hostingEnvironment = hostingEnvironment;
         _blogService = blogService;
         _rankingService = rankingService;
         _commentService = commentService;
+        _imageService = imageService;
+        _notificationService = notificationService;
     }
 
 
@@ -82,6 +88,7 @@ public class BlogController : Controller
     }
     // POST: /Blog/Create
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(BlogModel model, IFormFile image)
     {
         // Server-side authentication check
@@ -125,6 +132,7 @@ public class BlogController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, BlogModel model, IFormFile image)
     {
         // Server-side authentication check
@@ -143,12 +151,17 @@ public class BlogController : Controller
                 return NotFound(); // Return not found if the blog post with the given ID doesn't exist
             }
 
+            // Verify ownership
+            if (existingBlogPost.UserId != int.Parse(userIdStr))
+            {
+                return Forbid();
+            }
+
             // Handle file upload if a new image is provided
             if (image != null && image.Length > 0)
             {
-            var compressedImage = await TinyImageAsync(image);
-            existingBlogPost.ImagePath = await AddImageAsync(compressedImage);
-        }
+                existingBlogPost.ImagePath = await _imageService.UploadImageAsync(image);
+            }
 
             // Update other properties
             existingBlogPost.Title = model.Title;
@@ -194,6 +207,7 @@ public class BlogController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         // Server-side authentication check
@@ -207,6 +221,12 @@ public class BlogController : Controller
         if (blogPost == null)
         {
             return NotFound();
+        }
+
+        // Verify ownership
+        if (blogPost.UserId != int.Parse(userIdStr))
+        {
+            return Forbid();
         }
 
         var commentIds = await _context.Comments
@@ -233,6 +253,7 @@ public class BlogController : Controller
         return RedirectToAction(nameof(Index)); // Redirect to the blog listing page
     }
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> ModifyRankCount(int postId, string action, string type)
     {
@@ -260,6 +281,7 @@ public class BlogController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> PostComment(int postId, string commentText, string CreatedBy)
     {
@@ -289,6 +311,7 @@ public class BlogController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> EditComment(int commentId, string editedText)
     {
@@ -314,6 +337,7 @@ public class BlogController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> DeleteComment(string commentId)
     {
@@ -372,84 +396,55 @@ public class BlogController : Controller
 
    
 
-        public IActionResult GetUnreadAlertForUser(Boolean noread)
-        {
-        // Fetch unread notifications for the specified user, ordered by CreatedAt in descending order
-
-
-        string userIdString = HttpContext.Session.GetString("UserId");
-        if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
-        {
-            // Handle the case where session user ID is not available or not in the correct format
-            return BadRequest("Session user ID is missing or invalid.");
-        }
-
-        // Fetch unread notifications for the current user
-        var unreadAlert = _context.Blogs
-            .Join(_context.Alert,
-                blog => blog.Id,
-                notification => notification.BlogPostId,
-                (blog, notification) => new { Blog = blog, Alert = notification })
-            .Where(joinResult => joinResult.Blog.UserId == userId )
-            .Select(joinResult => new
-            {
-                Id = joinResult.Alert.Id,
-                BlogTitle = joinResult.Blog.Title,
-                Message = joinResult.Alert.Message,
-                isRead = joinResult.Alert.isRead
-            })
-            .OrderBy(joinResult => joinResult.isRead)
-            .ToList();
-
-        // Get the IDs of the unread notifications
-        var notificationIds = unreadAlert.Select(notification => notification.Id).ToList();
-
-        // Update the isRead status of fetched notifications to true
-        var notificationsToUpdate = _context.Alert
-            .Where(notification => notificationIds.Contains(notification.Id))
-            .ToList();
-
-        if(!noread)
-            notificationsToUpdate.ForEach(notification => notification.isRead = true);
-
-        // Save changes to the database
-        _context.SaveChanges();
-
-        return Json(unreadAlert);
-
-    }
-    [HttpPost]
-    public IActionResult CreateAlert(int blogPostId, string message)
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetUnreadAlertForUser()
     {
-        // Server-side authentication check
         var userIdStr = HttpContext.Session.GetString("UserId");
-        if (string.IsNullOrEmpty(userIdStr))
-        {
-            return Unauthorized("Please login to create alerts.");
-        }
+        if (string.IsNullOrEmpty(userIdStr)) return Unauthorized();
 
+        var alerts = await _notificationService.GetUnreadAlertsForUserAsync(int.Parse(userIdStr));
+        return Json(alerts);
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkAlertAsRead(int id)
+    {
+        var userIdStr = HttpContext.Session.GetString("UserId");
+        if (string.IsNullOrEmpty(userIdStr)) return Unauthorized();
+
+        var success = await _notificationService.MarkAsReadAsync(id, int.Parse(userIdStr));
+        if (!success) return NotFound();
+
+        return Ok();
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkAllAlertsAsRead()
+    {
+        var userIdStr = HttpContext.Session.GetString("UserId");
+        if (string.IsNullOrEmpty(userIdStr)) return Unauthorized();
+
+        await _notificationService.MarkAllAsReadAsync(int.Parse(userIdStr));
+        return Ok();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize]
+    public async Task<IActionResult> CreateAlert(int blogPostId, string message)
+    {
         try
         {
-            // Create a new notification object
-            var notification = new AlertModel
-            {
-                BlogPostId = blogPostId,
-                Message = message,
-                CreatedAt = DateTime.Now, // You can also use DateTimeOffset.UtcNow for UTC time
-                isRead = false // By default, the notification is unread
-            };
-
-            // Add the notification to the database context
-            _context.Alert.Add(notification);
-
-            // Save changes to the database
-            _context.SaveChanges();
-
+            await _notificationService.CreateAlertAsync(blogPostId, message);
             return Ok("Alert Created successfully.");
         }
         catch (Exception ex)
         {
-            // Handle exceptions
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }

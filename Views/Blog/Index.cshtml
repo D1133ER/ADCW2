@@ -141,6 +141,9 @@ $(document).ready(function() {
             type: 'POST',
             url: '/Blog/ModifyRankCount',
             data: { postId: postId, action: action, type: type },
+            headers: {
+                "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
+            },
             success: function (response) {
                 if(type != "comment")
                 {
@@ -154,6 +157,9 @@ $(document).ready(function() {
                     data: {
                         blogPostId: postId,
                         message: `${"@username"} reacted to your ${type}`
+                    },
+                    headers: {
+                        "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
                     },
                     success: function (response) {
                     },
@@ -260,6 +266,9 @@ $(document).ready(function() {
                 commentText: commentText,
                 CreatedBy: CreatedBy
             },
+            headers: {
+                "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
+            },
             success: function (response) {
                 // Handle success response
                 var CreatedDate = new Date(response.createdDate);
@@ -297,6 +306,9 @@ $(document).ready(function() {
                         blogPostId: postId,
                         message: `${"@username"} commented on your post` // You can customize the notification message here
                     },
+                    headers: {
+                        "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
+                    },
                     success: function (response) {
                     },
                     error: function (xhr, status, error) {
@@ -328,6 +340,9 @@ $(document).ready(function() {
                 type: 'POST',
                 url: '/Blog/EditComment',
                 data: { commentId: commentId, editedText: editedText },
+                headers: {
+                    "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
+                },
                 success: function (response) {
                     location.reload();
                 },
@@ -343,7 +358,10 @@ $(document).ready(function() {
         if (!confirm("Are you sure want to delete?")) return;
         fetch(`/blog/deletecomment`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+            },
             body: `commentId=${commentId}`
         })
             .then(response => {

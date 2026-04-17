@@ -42,6 +42,10 @@
     <Content Remove="$(SpaRoot)**" />
     <None Remove="$(SpaRoot)**" />
     <None Include="$(SpaRoot)**" Exclude="$(SpaRoot)node_modules\**" />
+    <Compile Remove="WeblogApplication.Tests\**" />
+    <Content Remove="WeblogApplication.Tests\**" />
+    <EmbeddedResource Remove="WeblogApplication.Tests\**" />
+    <None Remove="WeblogApplication.Tests\**" />
   </ItemGroup>
 
   <Target Name="PublishRunWebpack" AfterTargets="ComputeFilesToPublish">

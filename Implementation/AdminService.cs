@@ -3,6 +3,10 @@ using System.Globalization;
 using WeblogApplication.Data;
 using WeblogApplication.Interfaces;
 using WeblogApplication.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace WeblogApplication.Implementation
 {
@@ -20,7 +24,6 @@ namespace WeblogApplication.Implementation
             var totalBlogs = await _context.Blogs.CountAsync();
             var totalComments = await _context.Comments.CountAsync();
 
-            // Single query for totals instead of N+1 joins
             var totalLikes = await _context.Ranking
                 .Where(r => r.Type == "blog")
                 .SumAsync(r => (int?)r.Like) ?? 0;
@@ -29,11 +32,9 @@ namespace WeblogApplication.Implementation
                 .Where(r => r.Type == "blog")
                 .SumAsync(r => (int?)r.Dislike) ?? 0;
 
-            // Build month filter predicate
             var blogsQuery = _context.Blogs.AsQueryable();
-            blogsQuery = ApplyMonthFilter(blogsQuery, filterType, b => b.CreatedAt);
+            blogsQuery = ApplyMonthFilter(blogsQuery, filterType);
 
-            // Single projection query for blog details — no N+1
             var blogDetails = await blogsQuery
                 .Select(blog => new BlogViewModel
                 {
@@ -52,7 +53,6 @@ namespace WeblogApplication.Implementation
                 .Take(10)
                 .ToListAsync();
 
-            // Bloggers filtered by month
             var bloggersQuery = _context.Users.Where(u => u.Role != UserRole.Admin);
             if (filterType == "thisMonth")
             {
@@ -93,7 +93,34 @@ namespace WeblogApplication.Implementation
             };
         }
 
-        private static IQueryable<BlogModel> ApplyMonthFilter(IQueryable<BlogModel> query, string filterType, Func<BlogModel, DateTime> dateSelector)
+        public async Task<object> GetTotalStatsAsync()
+        {
+            return new
+            {
+                users = await _context.Users.CountAsync(),
+                blogs = await _context.Blogs.CountAsync(),
+                comments = await _context.Comments.CountAsync()
+            };
+        }
+
+        public async Task<IEnumerable<UserModel>> GetRecentUsersAsync(int limit)
+        {
+            return await _context.Users
+                .OrderByDescending(u => u.Id)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<BlogModel>> GetRecentBlogsAsync(int limit)
+        {
+            return await _context.Blogs
+                .Include(b => b.User)
+                .OrderByDescending(b => b.CreatedAt)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        private static IQueryable<BlogModel> ApplyMonthFilter(IQueryable<BlogModel> query, string filterType)
         {
             if (string.IsNullOrEmpty(filterType) || filterType == "all")
                 return query;
